@@ -970,7 +970,6 @@ onMounted(() => {
   aspect-ratio: 16/9;
   background: #000;
   border-radius: 8px;
-  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -979,6 +978,7 @@ onMounted(() => {
 .video-player {
   width: 100%;
   height: 100%;
+  border-radius: 8px;
 }
 
 .video-loading,
