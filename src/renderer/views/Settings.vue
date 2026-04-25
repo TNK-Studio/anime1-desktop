@@ -164,7 +164,7 @@
             </div>
             <p class="app-desc">使用 Electron + Vue 3 + TypeScript 构建的 Anime1 桌面客户端</p>
             <div class="app-links">
-              <el-link type="primary" @click="openExternal('https://github.com/elfgzp/anime1-desktop')">
+              <el-link type="primary" @click="openExternal('https://github.com/TNK-Studio/anime1-desktop')">
                 GitHub
               </el-link>
               <el-link type="primary" @click="openExternal('https://anime1.me')">

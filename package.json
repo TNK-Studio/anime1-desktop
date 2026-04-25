@@ -8,9 +8,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/elfgzp/anime1-desktop.git"
+    "url": "https://github.com/TNK-Studio/anime1-desktop.git"
   },
-  "homepage": "https://github.com/elfgzp/anime1-desktop#readme",
+  "homepage": "https://github.com/TNK-Studio/anime1-desktop#readme",
   "build": {
     "appId": "com.elfgzp.anime1-desktop",
     "productName": "Anime1Desktop",
@@ -48,7 +48,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "elfgzp",
+      "owner": "TNK-Studio",
       "repo": "anime1-desktop"
     }
   },

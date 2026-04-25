@@ -64,6 +64,6 @@ dmg:
 
 publish:
   provider: github
-  owner: elfgzp
+  owner: TNK-Studio
   repo: anime1-desktop
   releaseType: release

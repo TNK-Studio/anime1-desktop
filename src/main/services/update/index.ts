@@ -17,7 +17,7 @@
 import { autoUpdater, UpdateInfo as ElectronUpdateInfo } from 'electron-updater'
 import log from 'electron-log'
 import { EventEmitter } from 'events'
-import { app } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
@@ -361,12 +361,37 @@ export class UpdateService extends EventEmitter {
 
   /**
    * 安装更新
-   * 
+   *
    * 注意：调用后会退出应用
+   *
+   * macOS 特别处理：
+   * - 先关闭所有窗口，避免阻止应用退出
+   * - 使用 isSilent=true, isForceRunAfter=true 确保更新正确应用
+   * - 短暂延迟让 Squirrel.Mac 有时间处理
    */
   installUpdate(): void {
     log.info('[UpdateService] Installing update and restarting...')
-    autoUpdater.quitAndInstall()
+
+    // 关闭所有窗口，防止阻止应用退出
+    BrowserWindow.getAllWindows().forEach((win) => {
+      try {
+        win.destroy()
+      } catch (e) {
+        log.warn('[UpdateService] Failed to destroy window:', e)
+      }
+    })
+
+    // macOS 上使用 isSilent=true 和 isForceRunAfter=true
+    // isSilent: 不提示用户，静默退出
+    // isForceRunAfter: 确保更新后重新启动应用
+    const isSilent = process.platform === 'darwin'
+    const isForceRunAfter = process.platform === 'darwin'
+
+    // 短暂延迟确保窗口已关闭
+    setTimeout(() => {
+      log.info('[UpdateService] Calling quitAndInstall', { isSilent, isForceRunAfter })
+      autoUpdater.quitAndInstall(isSilent, isForceRunAfter)
+    }, 500)
   }
 
   /**
