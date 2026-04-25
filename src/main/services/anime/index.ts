@@ -7,6 +7,7 @@
 
 import { EventEmitter } from 'events'
 import log from 'electron-log'
+import * as OpenCC from 'opencc-js'
 import type { DatabaseService } from '../database'
 import type { CrawlerService } from '../crawler'
 import type { Anime, AnimePage, Episode, CacheStatus } from '@shared/types'
@@ -19,11 +20,22 @@ export class AnimeService extends EventEmitter {
   private cacheInitialized = false
   private isRefreshing = false
   private refreshInterval: NodeJS.Timeout | null = null
+  private s2tConverter: any
+  private t2sConverter: any
 
   constructor(databaseService: DatabaseService, crawlerService: CrawlerService) {
     super()
     this.databaseService = databaseService
     this.crawlerService = crawlerService
+
+    // 初始化简繁转换器
+    try {
+      this.s2tConverter = OpenCC.Converter({ from: 'cn', to: 'tw' })
+      this.t2sConverter = OpenCC.Converter({ from: 'tw', to: 'cn' })
+      log.info('[AnimeService] OpenCC converters initialized successfully')
+    } catch (e) {
+      log.warn('[AnimeService] OpenCC init failed:', e)
+    }
   }
 
   /**
@@ -316,18 +328,18 @@ export class AnimeService extends EventEmitter {
    */
   async search(keyword: string, page: number = 1): Promise<AnimePage> {
     await this.ensureInitialized()
-    
+
     const allAnime = Array.from(this.animeCache.values())
-    
-    // 简繁转换（简单实现）
+
+    // 简繁转换
     const variants = this.getSearchVariants(keyword)
-    
+
     // 过滤
     const filtered = allAnime.filter(anime => {
       const title = anime.title.toLowerCase()
       return variants.some(v => title.includes(v.toLowerCase()))
     })
-    
+
     // 分页
     const pageSize = PAGINATION.DEFAULT_PAGE_SIZE
     const totalPages = Math.ceil(filtered.length / pageSize)
@@ -345,32 +357,35 @@ export class AnimeService extends EventEmitter {
 
   /**
    * 获取搜索变体（简繁）
+   * 使用 opencc-js 进行完整的简繁转换
    */
   private getSearchVariants(keyword: string): string[] {
-    const variants = new Set([keyword])
-    
-    // 简繁转换表（常用字）
-    const traditionalMap: Record<string, string> = {
-      '动': '動',
-      '画': '畫',
-      '梦': '夢',
-      '门': '門',
-      '见': '見',
-      '贝': '貝',
-      '长': '長',
-      '风': '風',
-      '龙': '龍'
+    const variants = new Set<string>([keyword])
+
+    // 简体转繁体
+    if (this.s2tConverter) {
+      try {
+        const traditional = this.s2tConverter(keyword)
+        if (traditional !== keyword) {
+          variants.add(traditional)
+        }
+      } catch (e) {
+        log.warn('[AnimeService] S2T conversion failed:', e)
+      }
     }
-    
-    // 生成繁体变体
-    let traditional = keyword
-    for (const [s, t] of Object.entries(traditionalMap)) {
-      traditional = traditional.replace(new RegExp(s, 'g'), t)
+
+    // 繁体转简体
+    if (this.t2sConverter) {
+      try {
+        const simplified = this.t2sConverter(keyword)
+        if (simplified !== keyword) {
+          variants.add(simplified)
+        }
+      } catch (e) {
+        log.warn('[AnimeService] T2S conversion failed:', e)
+      }
     }
-    if (traditional !== keyword) {
-      variants.add(traditional)
-    }
-    
+
     return Array.from(variants)
   }
 

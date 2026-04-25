@@ -97,6 +97,15 @@ export class HomePage extends BasePage {
   }
 
   /**
+   * 获取番剧卡片的 ID
+   */
+  async getAnimeId(index = 0): Promise<string | null> {
+    const card = this.page.locator(this.selectors.animeCard).nth(index)
+    const id = await card.getAttribute('data-id')
+    return id
+  }
+
+  /**
    * 翻页到指定页码
    */
   async goToPage(pageNum: number): Promise<void> {

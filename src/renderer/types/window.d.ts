@@ -83,6 +83,9 @@ export interface ElectronAPI {
       episodeId: string;
     }) => Promise<any>;
     clear: () => Promise<any>;
+    delete: (params: { animeId: string; episodeId?: string }) => Promise<any>;
+    getByAnime: (params: { animeId: string }) => Promise<any>;
+    batchProgress: (params: { ids: string[] }) => Promise<any>;
   };
 
   // 设置

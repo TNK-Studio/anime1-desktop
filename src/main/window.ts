@@ -148,6 +148,13 @@ export class WindowManager {
   }
 
   /**
+   * 创建窗口右键菜单
+   */
+  private setupWindowContextMenu(): void {
+    log.info("[Window] Window context menu setup complete");
+  }
+
+  /**
    * 设置窗口事件
    */
   private setupWindowEvents(): void {
@@ -181,6 +188,11 @@ export class WindowManager {
     this.mainWindow.on("unmaximize", saveState);
     this.mainWindow.on("enter-full-screen", saveState);
     this.mainWindow.on("leave-full-screen", saveState);
+
+    // 窗口完全加载后创建右键菜单 (使用 webContents)
+    this.mainWindow.webContents.once("did-finish-load", () => {
+      this.setupWindowContextMenu();
+    });
 
     // 关闭处理
     this.mainWindow.on("close", (event) => {
@@ -305,6 +317,14 @@ export class WindowManager {
           label: "显示窗口",
           click: () => this.show(),
         },
+        {
+          label: "刷新",
+          click: () => this.mainWindow?.reload(),
+        },
+        {
+          label: "打开开发者工具",
+          click: () => this.mainWindow?.webContents.openDevTools(),
+        },
         { type: "separator" },
         {
           label: "退出",
@@ -317,8 +337,12 @@ export class WindowManager {
 
       this.tray.setContextMenu(contextMenu);
 
+      log.info("[Window] Tray context menu set");
+      log.info(`[Window] Menu has ${contextMenu.items?.length || 0} items`);
+
       // 点击托盘图标显示/隐藏窗口
       this.tray.on("click", () => {
+        log.info("[Window] Tray icon clicked");
         if (this.mainWindow?.isVisible()) {
           this.hide();
         } else {

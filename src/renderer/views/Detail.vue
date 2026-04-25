@@ -223,6 +223,7 @@
               :key="ep.id"
               class="episode-card"
               :class="{ active: currentEpisodeIndex === idx }"
+              :data-id="ep.id"
               :style="
                 getEpisodeProgress(ep.id)
                   ? {
@@ -363,9 +364,10 @@ const loadData = async () => {
     // 加载各剧集播放进度
     await loadEpisodeProgress();
 
-    // 自动播放第一集
+    // 自动选择应该播放的集数（续播）
+    const continueIndex = await findContinueEpisode();
     if (episodes.value.length > 0) {
-      playEpisode(0);
+      playEpisode(continueIndex);
     }
   } catch (err: any) {
     error.value = err.message || "加载失败";
@@ -433,6 +435,53 @@ const getEpisodeProgress = (episodeId: string): EpisodeProgress | null => {
   return episodeProgressMap.value[episodeId] || null;
 };
 
+// 查找应该继续播放的集数
+const findContinueEpisode = async (): Promise<number> => {
+  if (episodes.value.length === 0) return 0;
+
+  try {
+    const result = await window.api.history.getByAnime({
+      animeId: animeId.value,
+    });
+    const historyList: Array<{
+      episodeId: string;
+      positionSeconds: number;
+      totalSeconds: number;
+    }> = result.success ? result.data : [];
+
+    for (let i = 0; i < episodes.value.length; i++) {
+      const ep = episodes.value[i];
+      const history = historyList.find((h) => h.episodeId === ep.id);
+
+      if (!history) {
+        // 这集没有观看记录，说明从这里开始看
+        return i;
+      }
+
+      // 判断是否已看完：进度超过 90% 或剩余时间少于 30 秒
+      const isFinished =
+        history.totalSeconds > 0 &&
+        (history.positionSeconds / history.totalSeconds >= 0.9 ||
+          history.totalSeconds - history.positionSeconds <= 30);
+
+      if (!isFinished) {
+        // 这集没看完，继续播放这集
+        return i;
+      }
+
+      // 这集看完了，如果是最后一集，播放最后一集
+      if (i === episodes.value.length - 1) {
+        return i;
+      }
+    }
+
+    return 0;
+  } catch (err) {
+    console.error("[Detail] 获取播放历史失败:", err);
+    return 0;
+  }
+};
+
 // 检查收藏状态
 const checkFavoriteStatus = async () => {
   try {
@@ -485,6 +534,20 @@ const playEpisode = async (idx: number) => {
   videoError.value = "";
   videoUrl.value = "";
 
+  // 获取该集的历史播放进度
+  pendingSeekTime.value = 0;
+  try {
+    const progressResult = await window.api.history.getProgress({
+      animeId: animeId.value,
+      episodeId: ep.id,
+    });
+    if (progressResult.success && progressResult.data) {
+      pendingSeekTime.value = progressResult.data.position;
+    }
+  } catch (err) {
+    // 忽略错误，继续播放
+  }
+
   try {
     // 调用新的 getHlsProxyUrl API
     const result = await window.api.anime.getHlsProxyUrl({
@@ -532,6 +595,20 @@ const playEpisode = async (idx: number) => {
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           console.log("[Detail] HLS manifest 解析完成");
+
+          // 如果有历史进度，跳转到对应位置
+          if (pendingSeekTime.value > 0) {
+            const seekTo = Math.min(
+              pendingSeekTime.value,
+              video.duration - 5,
+            );
+            if (seekTo > 5) {
+              video.currentTime = seekTo;
+              console.log("[Video] HLS 跳转到历史进度:", seekTo);
+            }
+            pendingSeekTime.value = 0;
+          }
+
           video.play().catch(() => {
             // 自动播放被阻止
           });
@@ -572,6 +649,8 @@ const playEpisode = async (idx: number) => {
       } else {
         // 直接使用原生 video 标签播放
         video.src = videoUrl.value;
+
+        // 原生 video 的进度跳转由 onLoadedMetadata 事件处理
         video.play().catch(() => {
           // 自动播放被阻止
         });
@@ -740,6 +819,9 @@ const onVideoWaiting = () => {
   console.log("[Video] Buffering...");
 };
 
+// 待跳转的播放进度（用于历史续播）
+const pendingSeekTime = ref(0);
+
 // 视频可以播放
 const onVideoCanPlay = () => {
   console.log("[Video] Can play, currentTime:", videoPlayer.value?.currentTime);
@@ -752,10 +834,19 @@ const onVideoSeeked = () => {
 
 // 视频加载元数据完成
 const onLoadedMetadata = () => {
-  console.log(
-    "[Video] Metadata loaded, duration:",
-    videoPlayer.value?.duration,
-  );
+  const video = videoPlayer.value;
+  if (!video) return;
+  console.log("[Video] Metadata loaded, duration:", video.duration);
+
+  // 如果有待跳转的播放进度，执行跳转
+  if (pendingSeekTime.value > 0 && video.duration > 0) {
+    const seekTo = Math.min(pendingSeekTime.value, video.duration - 5);
+    if (seekTo > 5) {
+      video.currentTime = seekTo;
+      console.log("[Video] 跳转到历史进度:", seekTo);
+    }
+    pendingSeekTime.value = 0;
+  }
 };
 
 // 组件卸载时清理

@@ -47,6 +47,7 @@
           :key="anime.id"
           class="anime-card"
           shadow="hover"
+          :data-id="anime.id"
           @click="goToDetail(anime.id)"
         >
           <!-- 收藏按钮 -->

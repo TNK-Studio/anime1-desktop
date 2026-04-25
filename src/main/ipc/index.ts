@@ -14,6 +14,7 @@ import type { UpdateService } from "../services/update";
 import type { AutoDownloadService } from "../services/autoDownload";
 import { videoProxyService } from "../services/video-proxy";
 import { hlsProxyService } from "../services/video-proxy/hls-proxy";
+import log from "electron-log";
 
 // 服务容器接口
 interface Services {
@@ -281,18 +282,29 @@ export function registerIPCHandlers(services: Services): void {
           cookies = result.cookies;
         }
 
+        log.info(`[IPC] getHlsProxyUrl - videoUrl: ${videoUrl?.substring(0, 100)}...`);
+        log.info(`[IPC] getHlsProxyUrl - hasCookies: ${!!cookies}`);
+
         const isM3u8Video =
           videoUrl.includes(".m3u8") ||
           videoUrl.includes("#EXTM3U") ||
           videoUrl.includes("#EXT-X-STREAM-INF");
 
+        log.info(`[IPC] getHlsProxyUrl - isM3u8Video: ${isM3u8Video}`);
+
         let proxyUrl = "";
 
         if (isM3u8Video) {
-          proxyUrl = hlsProxyService.registerProxyUrl(videoUrl, cookies);
+          log.info(`[IPC] getHlsProxyUrl - Using HLS proxy service (port: ${hlsProxyService.getPort()})`);
+          log.info(`[IPC] getHlsProxyUrl - Cookies object:`, cookies);
+          proxyUrl = hlsProxyService.registerProxyUrl(videoUrl, undefined, cookies);
         } else {
+          log.info(`[IPC] getHlsProxyUrl - Using Video proxy service`);
+          log.info(`[IPC] getHlsProxyUrl - Cookies object:`, cookies);
           proxyUrl = videoProxyService.registerProxyUrl(videoUrl, cookies);
         }
+
+        log.info(`[IPC] getHlsProxyUrl - proxyUrl: ${proxyUrl}`);
 
         return {
           success: true,
@@ -302,6 +314,7 @@ export function registerIPCHandlers(services: Services): void {
           },
         };
       } catch (error) {
+        log.error(`[IPC] getHlsProxyUrl error:`, error);
         return { success: false, error: { message: String(error) } };
       }
     },

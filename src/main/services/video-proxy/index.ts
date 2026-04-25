@@ -9,6 +9,7 @@ import http from 'http'
 import https from 'https'
 import { URL } from 'url'
 import log from 'electron-log'
+import { hlsProxyService } from './hls-proxy'
 
 export class VideoProxyService {
   private server: http.Server | null = null
@@ -21,6 +22,7 @@ export class VideoProxyService {
    */
   async initialize(): Promise<void> {
     await this.startServer()
+    await hlsProxyService.initialize()
     log.info(`[VideoProxy] Service initialized on port ${this.port}`)
   }
 
@@ -211,6 +213,7 @@ export class VideoProxyService {
   cleanup(): void {
     this.server?.close()
     this.proxyMap.clear()
+    hlsProxyService.cleanup()
     log.info('[VideoProxy] Service stopped')
   }
 }
